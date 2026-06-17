@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>美達食品 - 現場智能巡檢電子系統</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- External Libraries via CDN -->
+    <!-- docx.js: Document Generation in Browser -->
+    <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.iife.min.js"></script>
+    <!-- FileSaver: Download generated files client-side -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <!-- SheetJS (XLSX): Parse inspection sheet templates uploaded by user -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <div id="app-container">
+        
+        <!-- Header (Visible only when logged in) -->
+        <header id="app-header" class="no-print" style="display: none;">
+            <div class="header-container">
+                <div class="logo-section">
+                    <i class="fa-solid fa-clipboard-check" style="color: var(--primary);"></i>
+                    <div>
+                        <h1>[美達食品] 現場巡檢表單系統</h1>
+                    </div>
+                    <span>生產安全版</span>
+                </div>
+                <div class="user-controls">
+                    <!-- Navigation Buttons for Screens -->
+                    <nav style="display: flex; gap: 8px; margin-right: 12px;" class="no-print">
+                        <button id="nav-dash-btn" class="btn-secondary" style="padding: 6px 12px; font-size: 13px;">
+                            <i class="fa-solid fa-chart-line"></i> 主控台
+                        </button>
+                        <button id="nav-templates-btn" class="btn-secondary" style="padding: 6px 12px; font-size: 13px;">
+                            <i class="fa-solid fa-file-invoice"></i> 巡檢單範本
+                        </button>
+                        <button id="nav-users-btn" class="btn-secondary" style="padding: 6px 12px; font-size: 13px; background: var(--primary-light); color: var(--primary);">
+                            <i class="fa-solid fa-users-gear"></i> 人員管理
+                        </button>
+                    </nav>
+                    
+                    <!-- Light/Dark Mode Toggle -->
+                    <button id="theme-toggle" class="btn-icon" title="切換深淺色主題">
+                        <i class="fa-solid fa-moon"></i>
+                    </button>
+                    
+                    <!-- User Account Meta Info -->
+                    <div class="user-info">
+                        <div class="avatar" id="user-avatar">美</div>
+                        <div>
+                            <div style="font-weight: 600;" id="user-display-name">巡檢主管</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);" id="user-display-id">管理員</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Logout -->
+                    <button id="logout-btn" class="btn-icon" title="登出系統" style="color: var(--danger);">
+                        <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Body -->
+        <main class="main-content">
+            
+            <!-- 1. 🔐 LOGIN SCREEN -->
+            <section id="login-screen" class="screen active">
+                <div class="login-wrapper">
+                    <div class="login-card">
+                        <div class="login-header">
+                            <i class="fa-solid fa-square-poll-horizontal" style="color: var(--primary);"></i>
+                            <h2>[美達食品] 現場巡檢系統</h2>
+                            <p>Meida Food - Inspection Portal</p>
+                        </div>
+                        <form id="login-form" onsubmit="return false;">
+                            <div class="form-group">
+                                <label for="username">管理員 / 主管帳號</label>
+                                <div class="input-with-icon">
+                                    <i class="fa-solid fa-user"></i>
+                                    <input type="text" id="username" placeholder="請輸入帳號" required value="admin">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="password">密碼</label>
+                                <div class="input-with-icon">
+                                    <i class="fa-solid fa-lock"></i>
+                                    <input type="password" id="password" placeholder="請輸入密碼" required value="123456">
+                                </div>
+                            </div>
+                            <button type="submit" class="btn-primary" id="submit-login-btn">
+                                <i class="fa-solid fa-right-to-bracket"></i> 安全登入
+                            </button>
+                            
+                            <div class="login-divider">
+                                <span>或</span>
+                            </div>
+                            
+                            <button type="button" class="btn-quick-login" id="quick-login-btn">
+                                <i class="fa-solid fa-user-shield"></i> 快速測試登入 (免密碼)
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. 📊 DASHBOARD OVERVIEW -->
+            <section id="dashboard-screen" class="screen">
+                <div class="section-card">
+                    <div class="section-header">
+                        <h2><i class="fa-solid fa-gauge-high"></i> [美達食品] 巡檢工作主控台</h2>
+                        <span style="font-size: 14px; color: var(--text-secondary);" id="current-date-time">2026/06/17</span>
+                    </div>
+                    
+                    <!-- Statistics Grid -->
+                    <div class="dashboard-grid">
+                        <div class="stat-card blue">
+                            <div class="stat-info">
+                                <h3>今日已完成巡檢</h3>
+                                <p id="stat-completed-count">0</p>
+                            </div>
+                            <div class="stat-icon"><i class="fa-solid fa-file-circle-check"></i></div>
+                        </div>
+                        <div class="stat-card red">
+                            <div class="stat-info">
+                                <h3>異常項目總數</h3>
+                                <p id="stat-defect-count">0</p>
+                            </div>
+                            <div class="stat-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                        </div>
+                        <div class="stat-card green">
+                            <div class="stat-info">
+                                <h3>正常項目比例</h3>
+                                <p id="stat-pass-rate">100%</p>
+                            </div>
+                            <div class="stat-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                        </div>
+                    </div>
+
+                    <!-- Shortcut Actions -->
+                    <div class="quick-actions-bar">
+                        <button class="btn-primary" id="dash-new-inspection-btn">
+                            <i class="fa-solid fa-plus"></i> 開始現場巡檢
+                        </button>
+                        <button class="btn-secondary" id="dash-manage-templates-btn">
+                            <i class="fa-solid fa-upload"></i> 上傳與管理巡檢單
+                        </button>
+                        <button class="btn-secondary" id="dash-manage-users-btn">
+                            <i class="fa-solid fa-users"></i> 人員與權限管理
+                        </button>
+                    </div>
+                </div>
+
+                <!-- History Inspection Logs -->
+                <div class="section-card">
+                    <div class="section-header">
+                        <h2><i class="fa-solid fa-clock-rotate-left"></i> 歷史巡檢紀錄電子表單</h2>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="search-history-input" placeholder="搜尋巡檢單名稱/負責人..." style="padding: 6px 12px; font-size: 13px; border: 1px solid var(--border-glass); border-radius: var(--radius-sm); background: var(--bg-primary); color: var(--text-primary);">
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table id="history-table">
+                            <thead>
+                                <tr>
+                                    <th>巡檢時間</th>
+                                    <th>表單名稱</th>
+                                    <th>生產線/區域</th>
+                                    <th>填寫巡檢員</th>
+                                    <th>主管核章</th>
+                                    <th>檢驗結果</th>
+                                    <th>異常數</th>
+                                    <th class="no-print" style="width: 200px;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-tbody">
+                                <!-- Loaded dynamically via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="history-empty" class="empty-state" style="display: none;">
+                        <i class="fa-regular fa-folder-open"></i>
+                        <h3>尚無任何巡檢歷史紀錄</h3>
+                        <p>點擊上方「開始現場巡檢」按鈕，即可開始填寫並產出電子巡檢表單。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. 📂 TEMPLATE MANAGEMENT & UPLOAD -->
+            <section id="template-screen" class="screen">
+                <div class="section-card">
+                    <div class="section-header">
+                        <h2><i class="fa-solid fa-list-check"></i> 巡檢單管理與範本上傳</h2>
+                        <button class="btn-secondary" id="back-to-dash-btn-1"><i class="fa-solid fa-arrow-left"></i> 返回主控台</button>
+                    </div>
+                    
+                    <div class="templates-layout">
+                        <!-- Left Panel: Preset & Upload -->
+                        <div>
+                            <!-- Excel Upload Box -->
+                            <div class="upload-zone" id="drop-zone">
+                                <i class="fa-solid fa-file-excel"></i>
+                                <h3>將巡檢 Excel 檔拖曳至此</h3>
+                                <p>支援 .xlsx / .xls 格式，系統會自動解析表格欄位</p>
+                                <p style="margin-top: 8px;"><span style="text-decoration: underline; color: var(--primary);">或點此瀏覽本機檔案</span></p>
+                                <input type="file" id="file-input" accept=".xlsx, .xls">
+                            </div>
+                            
+                            <!-- Preset Templates List -->
+                            <h3 style="font-size: 15px; margin-bottom: 12px; font-weight: 600;">內建系統預設範本</h3>
+                            <div class="preset-list" id="preset-templates-list">
+                                <!-- Filled by Javascript -->
+                            </div>
+                        </div>
+                        
+                        <!-- Right Panel: Visual Form Designer -->
+                        <div class="section-card" style="margin-bottom: 0;">
+                            <div class="section-header">
+                                <h3><i class="fa-solid fa-pen-to-square"></i> 巡檢單欄位設計器</h3>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="designer-title">巡檢單名稱</label>
+                                <input type="text" id="designer-title" placeholder="例如：美達食品加工一線設備巡檢表" style="padding-left:12px;">
+                            </div>
+                            
+                            <div class="template-designer-header">
+                                <button class="btn-secondary" id="designer-add-group-btn" style="font-size: 13px; padding: 6px 12px;">
+                                    <i class="fa-solid fa-folder-plus"></i> 新增巡檢分類
+                                </button>
+                                <button class="btn-primary" id="designer-save-template-btn" style="font-size: 13px; padding: 6px 12px; width: auto; min-width: 120px; box-shadow: none;">
+                                    <i class="fa-solid fa-floppy-disk"></i> 儲存自訂範本
+                                </button>
+                            </div>
+                            
+                            <div class="designer-items-list" id="designer-groups-container">
+                                <!-- Dynamically loaded designer items -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. 📝 ELECTRONIC FORM FILLING -->
+            <section id="form-screen" class="screen">
+                <div class="section-card">
+                    <div class="section-header">
+                        <h2 id="form-title-display">現場巡檢填寫表單</h2>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn-secondary" id="form-cancel-btn"><i class="fa-solid fa-xmark"></i> 取消</button>
+                        </div>
+                    </div>
+
+                    <!-- Meta Information Grid -->
+                    <div class="form-meta-grid">
+                        <div class="form-meta-item">
+                            <strong>填寫巡檢員 (執行者)</strong>
+                            <div class="form-group" style="margin-bottom:0;">
+                                <select id="form-input-inspector" style="padding: 6px 12px; font-size:13px; margin-top:2px;">
+                                    <!-- Options filled dynamically from User List -->
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-meta-item">
+                            <strong>覆核審核主管 (管理員)</strong>
+                            <div class="form-group" style="margin-bottom:0;">
+                                <select id="form-input-approver" style="padding: 6px 12px; font-size:13px; margin-top:2px;">
+                                    <!-- Options filled dynamically from User List (Supervisors/Admins) -->
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-meta-item">
+                            <strong>巡檢日期與時間</strong>
+                            <span id="form-meta-datetime">2026-06-17 12:00</span>
+                        </div>
+                        <div class="form-meta-item">
+                            <strong>生產區域 / 產線編號</strong>
+                            <div class="form-group" style="margin-bottom:0;">
+                                <select id="form-input-area" style="padding: 6px 12px; font-size:13px; margin-top:2px;">
+                                    <option value="美達 A 廠 蒸煮調配區">美達 A 廠 蒸煮調配區</option>
+                                    <option value="美達 A 廠 高速充填區">美達 A 廠 高速充填區</option>
+                                    <option value="美達 B 廠 殺菌冷卻區">美達 B 廠 殺菌冷卻區</option>
+                                    <option value="美達 B 廠 包裝紙箱區">美達 B 廠 包裝紙箱區</option>
+                                    <option value="美達 C 廠 冷凍低溫庫">美達 C 廠 冷凍低溫庫</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-meta-item">
+                            <strong>機台 / 設備編號</strong>
+                            <div class="form-group" style="margin-bottom:0;">
+                                <input type="text" id="form-input-machine" placeholder="例如：COOKER-02" style="padding: 6px 12px; font-size:13px; margin-top:2px; padding-left:12px;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Core Form Checklist Items Container -->
+                    <div id="form-checklist-container">
+                        <!-- Loaded dynamically via JS -->
+                    </div>
+
+                    <!-- Digital Signature Section -->
+                    <div class="signature-card">
+                        <h3 style="font-size: 15px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-signature"></i> 審核主管電子審查簽章
+                        </h3>
+                        <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">請核對以上巡檢項目數值，並於下方區域簽章認證：</p>
+                        <div class="signature-pad-container">
+                            <canvas id="signature-canvas" class="signature-canvas"></canvas>
+                        </div>
+                        <div class="signature-controls">
+                            <button class="btn-secondary" id="signature-clear-btn" style="font-size: 12px; padding: 6px 12px;">
+                                <i class="fa-solid fa-eraser"></i> 清除重新簽名
+                            </button>
+                            <button class="btn-primary" id="signature-lock-btn" style="font-size: 12px; padding: 6px 12px; width: auto; box-shadow: none;">
+                                <i class="fa-solid fa-lock"></i> 鎖定簽章
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Form Footer Buttons -->
+                    <div class="form-actions-footer">
+                        <button class="btn-secondary" id="form-save-draft-btn">
+                            <i class="fa-solid fa-pen-nib"></i> 暫存為草稿
+                        </button>
+                        <button class="btn-primary" id="form-submit-btn" style="width: auto; min-width: 180px;">
+                            <i class="fa-solid fa-circle-check"></i> 提交巡檢單
+                        </button>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- 5. 👥 USER & PERMISSIONS MANAGEMENT -->
+            <section id="users-screen" class="screen">
+                <div class="section-card">
+                    <div class="section-header">
+                        <h2><i class="fa-solid fa-users-gear"></i> 人員管理與巡檢權限設定</h2>
+                        <button class="btn-secondary" id="back-to-dash-btn-3"><i class="fa-solid fa-arrow-left"></i> 返回主控台</button>
+                    </div>
+
+                    <div class="templates-layout">
+                        <!-- Left Panel: Add / Edit User Form -->
+                        <div class="section-card" style="margin-bottom:0;">
+                            <div class="section-header">
+                                <h3 id="user-form-title"><i class="fa-solid fa-user-plus"></i> 新增人員帳號</h3>
+                            </div>
+                            <form id="user-editor-form" onsubmit="return false;">
+                                <input type="hidden" id="user-edit-index" value="-1">
+                                <div class="form-group">
+                                    <label for="user-input-id">員工工號 (ID)</label>
+                                    <input type="text" id="user-input-id" placeholder="例如：MD-105" required style="padding-left:12px;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="user-input-name">人員姓名</label>
+                                    <input type="text" id="user-input-name" placeholder="例如：陳志明" required style="padding-left:12px;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="user-input-dept">所屬部門</label>
+                                    <input type="text" id="user-input-dept" placeholder="例如：生產一課 / 品保課" required style="padding-left:12px;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="user-input-role">職責權限角色</label>
+                                    <select id="user-input-role" required style="padding-left:12px;">
+                                        <option value="巡檢員">巡檢員 (進行現場巡檢與拍照記錄)</option>
+                                        <option value="巡檢主管">巡檢主管 (巡檢、覆核、進行電子簽章)</option>
+                                        <option value="管理員">管理員 (系統全權限，包含人員與表單範本管理)</option>
+                                    </select>
+                                </div>
+                                <div style="display:flex; gap:8px; margin-top:12px;">
+                                    <button type="submit" class="btn-primary" id="user-save-btn" style="box-shadow:none;">
+                                        <i class="fa-solid fa-user-check"></i> 儲存人員
+                                    </button>
+                                    <button type="button" class="btn-secondary" id="user-clear-btn" style="display:none;">
+                                        取消編輯
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Right Panel: User list table -->
+                        <div class="section-card" style="margin-bottom:0;">
+                            <div class="section-header">
+                                <h3><i class="fa-solid fa-address-book"></i> 目前人員名單</h3>
+                            </div>
+                            <div class="table-responsive" style="max-height: 480px; overflow-y: auto;">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>工號</th>
+                                            <th>姓名</th>
+                                            <th>部門</th>
+                                            <th>角色權限</th>
+                                            <th style="width: 100px;">操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="users-list-tbody">
+                                        <!-- Rendered dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 6. 📄 REPORT DETAIL SCREEN (Word Export & Print) -->
+            <section id="report-detail-screen" class="screen">
+                <!-- Navigation -->
+                <div class="quick-actions-bar no-print">
+                    <button class="btn-secondary" id="back-to-dash-btn-2">
+                        <i class="fa-solid fa-arrow-left"></i> 返回主控台
+                    </button>
+                    <button class="btn-primary" id="detail-export-word-btn" style="background: #2b579a;">
+                        <i class="fa-solid fa-file-word"></i> 匯出為 Word 檔案 (.docx)
+                    </button>
+                    <button class="btn-primary" id="detail-print-btn" style="background: #00875a; box-shadow: none;">
+                        <i class="fa-solid fa-print"></i> 直接列印表單
+                    </button>
+                </div>
+
+                <!-- Printable Report Card -->
+                <div class="report-detail-card" id="printable-report-area">
+                    <div class="report-detail-header">
+                        <h2 id="detail-report-title">[美達食品] 製程巡檢報告書</h2>
+                        <p style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;" class="no-print">電子化自動檢驗存檔</p>
+                    </div>
+
+                    <!-- Metadata Table -->
+                    <table class="report-meta-table">
+                        <tr>
+                            <td><strong>巡檢表單名稱:</strong></td>
+                            <td id="detail-meta-title" colspan="3">美達食品加工一線設備巡檢表</td>
+                        </tr>
+                        <tr>
+                            <td style="width: 20%;"><strong>巡檢日期:</strong></td>
+                            <td style="width: 30%;" id="detail-meta-date">2026-06-17</td>
+                            <td style="width: 20%;"><strong>巡檢時間:</strong></td>
+                            <td style="width: 30%;" id="detail-meta-time">13:00</td>
+                        </tr>
+                        <tr>
+                            <td><strong>生產線/區域:</strong></td>
+                            <td id="detail-meta-area">美達 A 廠 蒸煮調配區</td>
+                            <td><strong>機台/設備編號:</strong></td>
+                            <td id="detail-meta-machine">COOKER-02</td>
+                        </tr>
+                        <tr>
+                            <td><strong>現場巡檢員:</strong></td>
+                            <td id="detail-meta-inspector">王小明</td>
+                            <td><strong>審核核章主管:</strong></td>
+                            <td id="detail-meta-approver">林大明</td>
+                        </tr>
+                        <tr>
+                            <td><strong>檢驗判定結果:</strong></td>
+                            <td id="detail-meta-status-cell" colspan="3"><span id="detail-meta-status-badge" class="status-badge ok">正常無異常</span></td>
+                        </tr>
+                    </table>
+
+                    <!-- Detailed Items Grid/Table -->
+                    <div class="report-detail-items" id="detail-items-container">
+                        <!-- Loaded dynamically via JS -->
+                    </div>
+
+                    <!-- Footer Signatures -->
+                    <div class="report-detail-signature-block">
+                        <div>
+                            <span style="font-size: 14px; font-weight: 600; color: var(--text-secondary);">覆核主管電子簽章：</span>
+                        </div>
+                        <div>
+                            <img id="detail-signature-image" class="report-detail-signature-img" src="" alt="主管電子簽章">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="no-print" style="margin-top: auto; padding: 24px 16px; border-top: 1px solid var(--border-glass); text-align: center; font-size: 12px; color: var(--text-muted); background: var(--bg-secondary);">
+            <div>[美達食品] 現場智能巡檢電子表單平台 © 2026. All Rights Reserved.</div>
+        </footer>
+
+    </div>
+
+    <!-- ==========================================================================
+       MODALS
+       ========================================================================== -->
+
+    <!-- Modal 1: Image Markup Editor (Drawing on Photo) -->
+    <div id="markup-modal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>現場照片缺陷標記與批註</h3>
+                <button class="btn-close-modal" id="markup-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="markup-canvas-container">
+                    <canvas id="markup-canvas" class="markup-canvas"></canvas>
+                </div>
+                <div class="markup-toolbar">
+                    <div class="markup-color-picker">
+                        <span style="font-size: 13px; font-weight: 500; align-self: center;">畫筆顏色：</span>
+                        <div class="color-option red active" data-color="#ef4444"></div>
+                        <div class="color-option yellow" data-color="#eab308"></div>
+                        <div class="color-option green" data-color="#22c55e"></div>
+                        <div class="color-option blue" data-color="#3b82f6"></div>
+                    </div>
+                    <div class="markup-brush-size">
+                        <span style="font-size: 13px; font-weight: 500;">粗細：</span>
+                        <input type="range" id="markup-brush-slider" min="2" max="15" value="5">
+                        <span id="brush-size-val" style="font-size: 12px; font-weight: 600; min-width: 14px;">5</span>
+                    </div>
+                    <button class="btn-secondary" id="markup-clear-btn" style="font-size: 12px; padding: 6px 12px; margin-left: auto;">
+                        <i class="fa-solid fa-trash-can"></i> 重設圖片
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="markup-cancel-btn">放棄變更</button>
+                <button class="btn-primary" id="markup-save-btn" style="width: auto;">儲存批註標記</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 2: Photo Viewer (Large view) -->
+    <div id="viewer-modal" class="modal-overlay">
+        <div class="modal-box" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>現場照片檢視</h3>
+                <button class="btn-close-modal" id="viewer-close-btn">&times;</button>
+            </div>
+            <div class="modal-body" style="text-align: center; background: #000;">
+                <img id="viewer-img-large" src="" alt="現場大圖" style="max-width: 100%; max-height: 70vh; object-fit: contain;">
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="viewer-close-btn-2">關閉</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom JS -->
+    <script src="index.js"></script>
+</body>
+</html>
