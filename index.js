@@ -2,8 +2,6 @@
    JavaScript Logic - Meida Food Field Inspection System
    ========================================================================== */
 
-const docxLib = window.docx || {};
-
 // ==========================================================================
 // 1. Initial State & Configuration
 // ==========================================================================
@@ -121,20 +119,31 @@ function showScreen(screenId) {
     }
     
     // Refresh Navigation Tab Highlights
-    document.querySelectorAll('nav button').forEach(btn => btn.style.background = 'transparent');
-    document.querySelectorAll('nav button').forEach(btn => btn.style.color = 'var(--text-primary)');
+    document.querySelectorAll('nav button').forEach(btn => {
+        btn.style.background = 'transparent';
+        btn.style.color = 'var(--text-primary)';
+    });
     
     if (screenId === 'dashboard-screen') {
-        document.getElementById('nav-dash-btn').style.background = 'var(--primary-light)';
-        document.getElementById('nav-dash-btn').style.color = 'var(--primary)';
+        const dashBtn = document.getElementById('nav-dash-btn');
+        if (dashBtn) {
+            dashBtn.style.background = 'var(--primary-light)';
+            dashBtn.style.color = 'var(--primary)';
+        }
         renderDashboard();
     } else if (screenId === 'template-screen') {
-        document.getElementById('nav-templates-btn').style.background = 'var(--primary-light)';
-        document.getElementById('nav-templates-btn').style.color = 'var(--primary)';
+        const tmplBtn = document.getElementById('nav-templates-btn');
+        if (tmplBtn) {
+            tmplBtn.style.background = 'var(--primary-light)';
+            tmplBtn.style.color = 'var(--primary)';
+        }
         renderTemplatesScreen();
     } else if (screenId === 'users-screen') {
-        document.getElementById('nav-users-btn').style.background = 'var(--primary-light)';
-        document.getElementById('nav-users-btn').style.color = 'var(--primary)';
+        const usersBtn = document.getElementById('nav-users-btn');
+        if (usersBtn) {
+            usersBtn.style.background = 'var(--primary-light)';
+            usersBtn.style.color = 'var(--primary)';
+        }
         renderUsersScreen();
     }
     
@@ -156,8 +165,14 @@ function checkAuth() {
 }
 
 function login(usernameVal, passwordVal) {
-    // Check inside local user list database
-    const matchingUser = usersList.find(u => u.id.toLowerCase() === usernameVal.trim().toLowerCase() && passwordVal === '123456');
+    if (!usersList || usersList.length === 0) {
+        usersList = [...DEFAULT_USERS];
+    }
+    
+    // Safe lookup to prevent undefined errors
+    const matchingUser = usersList.find(u => 
+        u && u.id && u.id.toLowerCase() === usernameVal.trim().toLowerCase() && passwordVal === '123456'
+    );
     
     if (matchingUser && (matchingUser.role === '管理員' || matchingUser.role === '巡檢主管')) {
         currentUser = {
@@ -186,9 +201,13 @@ function login(usernameVal, passwordVal) {
 
 function updateHeaderUser() {
     if (currentUser) {
-        document.getElementById('user-avatar').textContent = currentUser.avatar;
-        document.getElementById('user-display-name').textContent = currentUser.name;
-        document.getElementById('user-display-id').textContent = `${currentUser.role} (${currentUser.id})`;
+        const avatarEl = document.getElementById('user-avatar');
+        const nameEl = document.getElementById('user-display-name');
+        const idEl = document.getElementById('user-display-id');
+        
+        if (avatarEl) avatarEl.textContent = currentUser.avatar;
+        if (nameEl) nameEl.textContent = currentUser.name;
+        if (idEl) idEl.textContent = `${currentUser.role} (${currentUser.id})`;
     }
 }
 
@@ -255,8 +274,11 @@ function renderDashboard() {
     loadData();
     
     // Date Indicator
-    const now = new Date();
-    document.getElementById('current-date-time').innerHTML = `<i class="fa-regular fa-clock"></i> 系統時間: ${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const timeEl = document.getElementById('current-date-time');
+    if (timeEl) {
+        const now = new Date();
+        timeEl.innerHTML = `<i class="fa-regular fa-clock"></i> 系統時間: ${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    }
     
     // Calculate statistics
     const submittedReports = reports.filter(r => !r.isDraft);
@@ -299,7 +321,6 @@ function renderDashboard() {
     const sortedReports = [...reports].sort((a,b) => b.timestamp - a.timestamp);
     
     sortedReports.forEach(report => {
-        // Find abnormal count
         const defects = report.items.filter(it => it.status === 'fail').length;
         
         // Status Badge UI
@@ -334,30 +355,9 @@ function renderDashboard() {
     });
 }
 
-// Search History
-document.getElementById('search-history-input').addEventListener('input', function(e) {
-    const query = e.target.value.toLowerCase().trim();
-    const rows = document.querySelectorAll('#history-tbody tr');
-    
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        if (text.includes(query)) {
-            row.style.display = 'table-row';
-        } else {
-            row.style.display = 'none';
-        }
-    });
-});
-
 // ==========================================================================
 // 6. Template Management UI & Heuristic Excel Parser
 // ==========================================================================
-
-let designerTemplate = {
-    id: "",
-    name: "",
-    categories: []
-};
 
 function renderTemplatesScreen() {
     loadData();
@@ -382,36 +382,6 @@ function renderTemplatesScreen() {
             </div>
         `;
         presetContainer.appendChild(card);
-    });
-}
-
-// Drag and drop setup for file parsing
-const dropZone = document.getElementById('drop-zone');
-const fileInput = document.getElementById('file-input');
-
-if (dropZone) {
-    dropZone.addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.style.background = 'var(--primary-light)';
-    });
-    dropZone.addEventListener('dragleave', () => {
-        dropZone.style.background = 'var(--bg-tertiary)';
-    });
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.style.background = 'var(--bg-tertiary)';
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-            parseUploadedFile(files[0]);
-        }
-    });
-}
-if (fileInput) {
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-            parseUploadedFile(e.target.files[0]);
-        }
     });
 }
 
@@ -558,8 +528,11 @@ function loadTemplateToDesigner(tmplId) {
 }
 
 function loadTemplateToDesignerUI() {
-    document.getElementById('designer-title').value = designerTemplate.name;
+    const designerTitleInput = document.getElementById('designer-title');
+    if (designerTitleInput) designerTitleInput.value = designerTemplate.name;
+    
     const container = document.getElementById('designer-groups-container');
+    if (!container) return;
     container.innerHTML = '';
     
     designerTemplate.categories.forEach((cat, catIdx) => {
@@ -585,6 +558,7 @@ function loadTemplateToDesignerUI() {
 
 function renderDesignerSubItems(catIdx) {
     const subContainer = document.getElementById(`designer-sublist-${catIdx}`);
+    if (!subContainer) return;
     subContainer.innerHTML = '';
     
     const cat = designerTemplate.categories[catIdx];
@@ -634,20 +608,18 @@ function populateInspectorSelects() {
     const inspectorSelect = document.getElementById('form-input-inspector');
     const approverSelect = document.getElementById('form-input-approver');
     
+    if (!inspectorSelect || !approverSelect) return;
+    
     inspectorSelect.innerHTML = '';
     approverSelect.innerHTML = '';
     
-    // Filter by roles
     usersList.forEach(u => {
-        // Inspectors & Supervisors
         if (u.role === '巡檢員' || u.role === '巡檢主管' || u.role === '管理員') {
             const opt = document.createElement('option');
             opt.value = u.id;
             opt.textContent = `${u.name} (${u.role})`;
             inspectorSelect.appendChild(opt);
         }
-        
-        // Approvers: Supervisor & Admins
         if (u.role === '巡檢主管' || u.role === '管理員') {
             const opt = document.createElement('option');
             opt.value = u.id;
@@ -662,7 +634,6 @@ function startNewInspection(tmplId) {
     const tmpl = templates.find(t => t.id === tmplId);
     if (!tmpl) return;
     
-    // Set inspector lists
     populateInspectorSelects();
     
     const now = new Date();
@@ -692,8 +663,8 @@ function startNewInspection(tmplId) {
             currentReport.items.push({
                 category: cat.name,
                 name: itName,
-                record: "", // For the new typing text box
-                status: "", // pass (合格), fail (不合格), na (無運作)
+                record: "", 
+                status: "", 
                 note: "",
                 photos: []
             });
@@ -714,7 +685,6 @@ function loadReportToFillingUI() {
     document.getElementById('form-input-area').value = currentReport.area;
     document.getElementById('form-input-machine').value = currentReport.machine;
     
-    // Select previously selected values if any
     if (currentReport.inspectorId) {
         document.getElementById('form-input-inspector').value = currentReport.inspectorId;
     }
@@ -736,14 +706,14 @@ function loadReportToFillingUI() {
     if (currentReport.signature) {
         const img = new Image();
         img.onload = function() {
-            signatureContext.drawImage(img, 0, 0);
+            if (signatureContext) signatureContext.drawImage(img, 0, 0);
             lockSignaturePad();
         };
         img.src = currentReport.signature;
     }
     
-    // Build electronic checklist form
     const container = document.getElementById('form-checklist-container');
+    if (!container) return;
     container.innerHTML = '';
     
     let currentCategoryName = "";
@@ -775,15 +745,12 @@ function loadReportToFillingUI() {
                     <span class="item-index">${itemIdx + 1}</span>
                     <span class="item-name">${item.name}</span>
                 </div>
-                
-                <!-- ROW CONTROLS: Typing box + Verdict buttons + Compact Photo upload -->
                 <div style="display: flex; gap: 10px; align-items: center; width: 100%; flex-wrap: wrap;">
                     <input type="text" class="item-record-input" 
                            placeholder="現況/數值記錄 (例如: 85°C 或 正常)..." 
                            value="${item.record || ''}" 
                            onchange="updateCheckItemRecord(${itemIdx}, this.value)"
                            style="flex: 1; min-width: 180px; max-width: 100%;">
-                           
                     <div class="item-options" style="flex-wrap: wrap;">
                         <button class="option-btn pass ${item.status === 'pass' ? 'active' : ''}" onclick="setCheckItemStatus(${itemIdx}, 'pass')">
                             <i class="fa-solid fa-circle-check"></i> 合格
@@ -794,22 +761,18 @@ function loadReportToFillingUI() {
                         <button class="option-btn na ${item.status === 'na' ? 'active' : ''}" onclick="setCheckItemStatus(${itemIdx}, 'na')">
                             <i class="fa-solid fa-circle-minus"></i> 無運作
                         </button>
-                        <button class="btn-photo-action" onclick="triggerPhotoUpload(${itemIdx})" title="拍照或上傳現場佐證照片">
+                        <button class="btn-photo-action" onclick="triggerPhotoUpload(${itemIdx})" title="拍照">
                             <i class="fa-solid fa-camera"></i> 拍照 <span id="photo-count-badge-${itemIdx}" style="background: var(--primary); color: white; border-radius:50%; font-size:10px; padding:1px 6px; margin-left:4px; display:${item.photos.length > 0 ? 'inline' : 'none'};">${item.photos.length}</span>
                         </button>
                     </div>
-                    
                     <input type="file" id="file-uploader-${itemIdx}" accept="image/*" style="display:none;" onchange="handlePhotoUpload(${itemIdx}, this)">
                 </div>
             </div>
-            
-            <!-- Details section for photos & notes, active always if photos are uploaded or note typed -->
             <div class="inspection-item-details ${item.status === 'fail' || item.note || item.photos.length > 0 ? 'active' : ''}" id="item-details-${itemIdx}">
                 <div class="form-group" style="margin-bottom:8px;">
                     <label style="font-size:12px; font-weight:600;"><i class="fa-solid fa-comment-dots"></i> 異常說明 / 備註</label>
-                    <textarea placeholder="填寫更多異常原因或處理指引..." rows="2" style="padding-left:12px;" onchange="updateCheckItemNote(${itemIdx}, this.value)">${item.note || ''}</textarea>
+                    <textarea placeholder="填寫更多描述..." rows="2" style="padding-left:12px;" onchange="updateCheckItemNote(${itemIdx}, this.value)">${item.note || ''}</textarea>
                 </div>
-                
                 <div class="form-group" style="margin-bottom:0;">
                     <div class="photo-uploader-container">
                         <div id="photo-thumbs-${itemIdx}" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
@@ -817,7 +780,7 @@ function loadReportToFillingUI() {
                 </div>
             </div>
         `;
-        itemsSubContainer.appendChild(row);
+        if (itemsSubContainer) itemsSubContainer.appendChild(row);
         renderPhotoThumbnails(itemIdx);
     });
 }
@@ -828,20 +791,21 @@ function updateCheckItemRecord(itemIdx, val) {
 
 function setCheckItemStatus(itemIdx, status) {
     currentReport.items[itemIdx].status = status;
-    
     const row = document.getElementById(`item-row-${itemIdx}`);
-    row.querySelectorAll('.option-btn').forEach(btn => btn.classList.remove('active'));
-    
-    const activeBtn = row.querySelector(`.option-btn.${status}`);
-    if (activeBtn) activeBtn.classList.add('active');
-    
+    if (row) {
+        row.querySelectorAll('.option-btn').forEach(btn => btn.classList.remove('active'));
+        const activeBtn = row.querySelector(`.option-btn.${status}`);
+        if (activeBtn) activeBtn.classList.add('active');
+    }
     const detailsBlock = document.getElementById(`item-details-${itemIdx}`);
-    if (status === 'fail') {
-        detailsBlock.classList.add('active');
-    } else {
-        const item = currentReport.items[itemIdx];
-        if (!item.note && item.photos.length === 0) {
-            detailsBlock.classList.remove('active');
+    if (detailsBlock) {
+        if (status === 'fail') {
+            detailsBlock.classList.add('active');
+        } else {
+            const item = currentReport.items[itemIdx];
+            if (!item.note && item.photos.length === 0) {
+                detailsBlock.classList.remove('active');
+            }
         }
     }
 }
@@ -851,30 +815,28 @@ function updateCheckItemNote(itemIdx, text) {
 }
 
 function triggerPhotoUpload(itemIdx) {
-    document.getElementById(`file-uploader-${itemIdx}`).click();
+    const el = document.getElementById(`file-uploader-${itemIdx}`);
+    if (el) el.click();
 }
 
 function handlePhotoUpload(itemIdx, input) {
     if (input.files.length === 0) return;
     const file = input.files[0];
-    
     const reader = new FileReader();
     reader.onload = function(e) {
         const rawBase64 = e.target.result;
-        
         compressImage(rawBase64, 800, 0.7, function(compressedBase64) {
             currentReport.items[itemIdx].photos.push(compressedBase64);
             renderPhotoThumbnails(itemIdx);
             
-            // Show details block
             const detailsBlock = document.getElementById(`item-details-${itemIdx}`);
-            detailsBlock.classList.add('active');
+            if (detailsBlock) detailsBlock.classList.add('active');
             
-            // Update photo badge counter
             const badge = document.getElementById(`photo-count-badge-${itemIdx}`);
-            badge.style.display = 'inline';
-            badge.textContent = currentReport.items[itemIdx].photos.length;
-            
+            if (badge) {
+                badge.style.display = 'inline';
+                badge.textContent = currentReport.items[itemIdx].photos.length;
+            }
             input.value = '';
         });
     };
@@ -883,6 +845,7 @@ function handlePhotoUpload(itemIdx, input) {
 
 function renderPhotoThumbnails(itemIdx) {
     const thumbsContainer = document.getElementById(`photo-thumbs-${itemIdx}`);
+    if (!thumbsContainer) return;
     thumbsContainer.innerHTML = '';
     
     const item = currentReport.items[itemIdx];
@@ -909,15 +872,16 @@ function deletePhoto(itemIdx, photoIdx) {
     
     const badge = document.getElementById(`photo-count-badge-${itemIdx}`);
     const len = currentReport.items[itemIdx].photos.length;
-    if (len > 0) {
-        badge.textContent = len;
-    } else {
-        badge.style.display = 'none';
-        
-        // Hide details block if empty
-        const item = currentReport.items[itemIdx];
-        if (!item.note && item.status !== 'fail') {
-            document.getElementById(`item-details-${itemIdx}`).classList.remove('active');
+    if (badge) {
+        if (len > 0) {
+            badge.textContent = len;
+        } else {
+            badge.style.display = 'none';
+            const item = currentReport.items[itemIdx];
+            if (!item.note && item.status !== 'fail') {
+                const detailsBlock = document.getElementById(`item-details-${itemIdx}`);
+                if (detailsBlock) detailsBlock.classList.remove('active');
+            }
         }
     }
 }
@@ -957,19 +921,27 @@ function openPhotoMarkupModal(itemIdx, photoIdx, base64Img) {
     document.getElementById('markup-modal').classList.add('active');
     
     const canvas = document.getElementById('markup-canvas');
+    if (!canvas) return;
     markupContext = canvas.getContext('2d');
     
     markupImage = new Image();
     markupImage.onload = function() {
         canvas.width = markupImage.width;
         canvas.height = markupImage.height;
-        markupContext.drawImage(markupImage, 0, 0);
+        if (markupContext) markupContext.drawImage(markupImage, 0, 0);
     };
     markupImage.src = base64Img;
 }
 
+function closeMarkupModal() {
+    const modal = document.getElementById('markup-modal');
+    if (modal) modal.classList.remove('active');
+    currentEditingPhotoMeta = null;
+}
+
 function initMarkupEvents() {
     const canvas = document.getElementById('markup-canvas');
+    if (!canvas) return;
     
     function getCoords(e) {
         const rect = canvas.getBoundingClientRect();
@@ -985,19 +957,23 @@ function initMarkupEvents() {
         e.preventDefault();
         isDrawingMarkup = true;
         const coords = getCoords(e);
-        markupContext.beginPath();
-        markupContext.moveTo(coords.x, coords.y);
-        markupContext.lineCap = "round";
-        markupContext.strokeStyle = markupBrushColor;
-        markupContext.lineWidth = markupBrushSize;
+        if (markupContext) {
+            markupContext.beginPath();
+            markupContext.moveTo(coords.x, coords.y);
+            markupContext.lineCap = "round";
+            markupContext.strokeStyle = markupBrushColor;
+            markupContext.lineWidth = markupBrushSize;
+        }
     }
     
     function draw(e) {
         if (!isDrawingMarkup) return;
         e.preventDefault();
         const coords = getCoords(e);
-        markupContext.lineTo(coords.x, coords.y);
-        markupContext.stroke();
+        if (markupContext) {
+            markupContext.lineTo(coords.x, coords.y);
+            markupContext.stroke();
+        }
     }
     
     canvas.addEventListener('mousedown', startDraw);
@@ -1017,32 +993,41 @@ function initMarkupEvents() {
         });
     });
     
-    document.getElementById('markup-brush-slider').addEventListener('input', function(e) {
-        markupBrushSize = parseInt(e.target.value);
-        document.getElementById('brush-size-val').textContent = markupBrushSize;
-    });
+    const slider = document.getElementById('markup-brush-slider');
+    if (slider) {
+        slider.addEventListener('input', function(e) {
+            markupBrushSize = parseInt(e.target.value);
+            document.getElementById('brush-size-val').textContent = markupBrushSize;
+        });
+    }
     
-    document.getElementById('markup-clear-btn').addEventListener('click', () => {
-        markupContext.clearRect(0, 0, canvas.width, canvas.height);
-        markupContext.drawImage(markupImage, 0, 0);
-    });
+    const clearBtn = document.getElementById('markup-clear-btn');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            if (markupContext) {
+                markupContext.clearRect(0, 0, canvas.width, canvas.height);
+                markupContext.drawImage(markupImage, 0, 0);
+            }
+        });
+    }
     
-    document.getElementById('markup-cancel-btn').addEventListener('click', closeMarkupModal);
-    document.getElementById('markup-close-btn').addEventListener('click', closeMarkupModal);
+    const cancelBtn = document.getElementById('markup-cancel-btn');
+    if (cancelBtn) cancelBtn.addEventListener('click', closeMarkupModal);
     
-    document.getElementById('markup-save-btn').addEventListener('click', () => {
-        if (!currentEditingPhotoMeta) return;
-        const { itemIdx, photoIdx } = currentEditingPhotoMeta;
-        currentReport.items[itemIdx].photos[photoIdx] = canvas.toDataURL('image/jpeg', 0.8);
-        renderPhotoThumbnails(itemIdx);
-        closeMarkupModal();
-        showToast("已儲存照片手寫註記。");
-    });
-}
-
-function closeMarkupModal() {
-    document.getElementById('markup-modal').classList.remove('active');
-    currentEditingPhotoMeta = null;
+    const closeBtn = document.getElementById('markup-close-btn');
+    if (closeBtn) closeBtn.addEventListener('click', closeMarkupModal);
+    
+    const saveBtn = document.getElementById('markup-save-btn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+            if (!currentEditingPhotoMeta) return;
+            const { itemIdx, photoIdx } = currentEditingPhotoMeta;
+            currentReport.items[itemIdx].photos[photoIdx] = canvas.toDataURL('image/jpeg', 0.8);
+            renderPhotoThumbnails(itemIdx);
+            closeMarkupModal();
+            showToast("已儲存照片批註。");
+        });
+    }
 }
 
 // ==========================================================================
@@ -1051,17 +1036,20 @@ function closeMarkupModal() {
 
 function initSignatureEvents() {
     signatureCanvas = document.getElementById('signature-canvas');
+    if (!signatureCanvas) return;
     signatureContext = signatureCanvas.getContext('2d');
     
     function resizeCanvas() {
+        if (!signatureCanvas) return;
         const dpr = window.devicePixelRatio || 1;
         const rect = signatureCanvas.getBoundingClientRect();
         signatureCanvas.width = rect.width * dpr;
         signatureCanvas.height = rect.height * dpr;
-        signatureContext.scale(dpr, dpr);
-        
-        signatureContext.fillStyle = '#ffffff';
-        signatureContext.fillRect(0, 0, rect.width, rect.height);
+        if (signatureContext) {
+            signatureContext.scale(dpr, dpr);
+            signatureContext.fillStyle = '#ffffff';
+            signatureContext.fillRect(0, 0, rect.width, rect.height);
+        }
     }
     
     window.addEventListener('resize', () => {
@@ -1082,19 +1070,23 @@ function initSignatureEvents() {
         e.preventDefault();
         isDrawingSignature = true;
         const coords = getCoords(e);
-        signatureContext.beginPath();
-        signatureContext.moveTo(coords.x, coords.y);
-        signatureContext.strokeStyle = "#000000";
-        signatureContext.lineWidth = 2.5;
-        signatureContext.lineCap = "round";
+        if (signatureContext) {
+            signatureContext.beginPath();
+            signatureContext.moveTo(coords.x, coords.y);
+            signatureContext.strokeStyle = "#000000";
+            signatureContext.lineWidth = 2.5;
+            signatureContext.lineCap = "round";
+        }
     }
     
     function draw(e) {
         if (!isDrawingSignature || signatureLocked) return;
         e.preventDefault();
         const coords = getCoords(e);
-        signatureContext.lineTo(coords.x, coords.y);
-        signatureContext.stroke();
+        if (signatureContext) {
+            signatureContext.lineTo(coords.x, coords.y);
+            signatureContext.stroke();
+        }
     }
     
     signatureCanvas.addEventListener('mousedown', startDraw);
@@ -1106,286 +1098,52 @@ function initSignatureEvents() {
     signatureCanvas.addEventListener('touchmove', draw, { passive: false });
     signatureCanvas.addEventListener('touchend', () => isDrawingSignature = false);
     
-    document.getElementById('signature-clear-btn').addEventListener('click', () => {
-        unlockSignaturePad();
-        const rect = signatureCanvas.getBoundingClientRect();
-        signatureContext.clearRect(0, 0, rect.width, rect.height);
-        signatureContext.fillStyle = '#ffffff';
-        signatureContext.fillRect(0, 0, rect.width, rect.height);
-        currentReport.signature = "";
-    });
-    
-    document.getElementById('signature-lock-btn').addEventListener('click', () => {
-        if (signatureLocked) {
+    const clearBtn = document.getElementById('signature-clear-btn');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
             unlockSignaturePad();
-        } else {
-            lockSignaturePad();
-        }
-    });
+            const rect = signatureCanvas.getBoundingClientRect();
+            if (signatureContext) {
+                signatureContext.clearRect(0, 0, rect.width, rect.height);
+                signatureContext.fillStyle = '#ffffff';
+                signatureContext.fillRect(0, 0, rect.width, rect.height);
+            }
+            currentReport.signature = "";
+        });
+    }
+    
+    const lockBtn = document.getElementById('signature-lock-btn');
+    if (lockBtn) {
+        lockBtn.addEventListener('click', () => {
+            if (signatureLocked) {
+                unlockSignaturePad();
+            } else {
+                lockSignaturePad();
+            }
+        });
+    }
 }
 
 function lockSignaturePad() {
     signatureLocked = true;
-    document.getElementById('signature-lock-btn').innerHTML = `<i class="fa-solid fa-lock-open"></i> 解鎖變更`;
-    signatureCanvas.style.pointerEvents = 'none';
-    currentReport.signature = signatureCanvas.toDataURL('image/png');
+    const lockBtn = document.getElementById('signature-lock-btn');
+    if (lockBtn) lockBtn.innerHTML = `<i class="fa-solid fa-lock-open"></i> 解鎖變更`;
+    if (signatureCanvas) {
+        signatureCanvas.style.pointerEvents = 'none';
+        currentReport.signature = signatureCanvas.toDataURL('image/png');
+    }
     showToast("簽章已鎖定確認！");
 }
 
 function unlockSignaturePad() {
     signatureLocked = false;
-    document.getElementById('signature-lock-btn').innerHTML = `<i class="fa-solid fa-lock"></i> 鎖定簽章`;
-    signatureCanvas.style.pointerEvents = 'auto';
+    const lockBtn = document.getElementById('signature-lock-btn');
+    if (lockBtn) lockBtn.innerHTML = `<i class="fa-solid fa-lock"></i> 鎖定簽章`;
+    if (signatureCanvas) signatureCanvas.style.pointerEvents = 'auto';
 }
 
 // ==========================================================================
-// 10. Form Submission & Draft Saving
-// ==========================================================================
-
-function validateAndCollectFormMeta() {
-    // Inspector
-    const inspIdSelect = document.getElementById('form-input-inspector');
-    const inspUser = usersList.find(u => u.id === inspIdSelect.value);
-    currentReport.inspectorId = inspIdSelect.value;
-    currentReport.inspector = inspUser ? inspUser.name : "未指定";
-    
-    // Approver
-    const appSelect = document.getElementById('form-input-approver');
-    const appUser = usersList.find(u => u.id === appSelect.value);
-    currentReport.approverId = appSelect.value;
-    currentReport.approver = appUser ? appUser.name : "未指定覆核主管";
-
-    currentReport.area = document.getElementById('form-input-area').value;
-    currentReport.machine = document.getElementById('form-input-machine').value.trim();
-}
-
-document.getElementById('form-save-draft-btn').addEventListener('click', () => {
-    if (!currentReport) return;
-    validateAndCollectFormMeta();
-    currentReport.isDraft = true;
-    currentReport.timestamp = Date.now();
-    if (signatureLocked) {
-        currentReport.signature = signatureCanvas.toDataURL('image/png');
-    }
-    saveReport(currentReport);
-    showScreen('dashboard-screen');
-    showToast("草稿暫存完成！");
-});
-
-document.getElementById('form-submit-btn').addEventListener('click', () => {
-    if (!currentReport) return;
-    validateAndCollectFormMeta();
-    
-    // Validate Checklist states
-    let unselected = [];
-    currentReport.items.forEach((it, idx) => {
-        if (!it.status) unselected.push(idx + 1);
-    });
-    if (unselected.length > 0) {
-        alert(`無法送出！\n第 ${unselected.join(", ")} 項巡檢項目未勾選(合格/不合格/無運作)。`);
-        return;
-    }
-    
-    // Validate: Abnormals must have description note
-    let commentsMissing = [];
-    currentReport.items.forEach((it, idx) => {
-        if (it.status === 'fail' && !it.note.trim()) {
-            commentsMissing.push(idx + 1);
-        }
-    });
-    if (commentsMissing.length > 0) {
-        alert(`無法送出！\n第 ${commentsMissing.join(", ")} 項不合格之處未填寫任何原因說明！`);
-        return;
-    }
-    
-    if (!currentReport.signature && !signatureLocked) {
-        alert("無法送出！\n請於審核人簽名區域手寫簽名，並點選「鎖定簽章」核准！");
-        return;
-    }
-    
-    if (signatureLocked) {
-        currentReport.signature = signatureCanvas.toDataURL('image/png');
-    }
-    
-    currentReport.isDraft = false;
-    currentReport.timestamp = Date.now();
-    
-    saveReport(currentReport);
-    viewReportDetail(currentReport.id);
-    showToast("巡檢單已送出並正式存檔！");
-});
-
-document.getElementById('form-cancel-btn').addEventListener('click', () => {
-    if (confirm("是否放棄填寫？")) {
-        showScreen('dashboard-screen');
-    }
-});
-
-// ==========================================================================
-// 11. Report Viewing Screen Render
-// ==========================================================================
-
-function viewReportDetail(reportId) {
-    loadData();
-    const reportObj = reports.find(r => r.id === reportId);
-    if (!reportObj) return;
-    
-    currentReport = reportObj;
-    
-    if (reportObj.isDraft) {
-        loadReportToFillingUI();
-        showScreen('form-screen');
-        
-        setTimeout(() => {
-            const canvas = document.getElementById('signature-canvas');
-            const dpr = window.devicePixelRatio || 1;
-            const rect = canvas.getBoundingClientRect();
-            canvas.width = rect.width * dpr;
-            canvas.height = rect.height * dpr;
-            signatureContext.scale(dpr, dpr);
-            signatureContext.fillStyle = '#ffffff';
-            signatureContext.fillRect(0, 0, rect.width, rect.height);
-            
-            if (reportObj.signature) {
-                const img = new Image();
-                img.onload = function() {
-                    signatureContext.drawImage(img, 0, 0);
-                    lockSignaturePad();
-                };
-                img.src = reportObj.signature;
-            }
-        }, 100);
-        return;
-    }
-    
-    // Populate Readonly Detail View
-    document.getElementById('detail-report-title').textContent = `[美達食品] ${reportObj.title}`;
-    document.getElementById('detail-meta-title').textContent = reportObj.title;
-    document.getElementById('detail-meta-date').textContent = reportObj.date;
-    document.getElementById('detail-meta-time').textContent = reportObj.time;
-    document.getElementById('detail-meta-area').textContent = reportObj.area;
-    document.getElementById('detail-meta-machine').textContent = reportObj.machine || "無特定機台編號";
-    document.getElementById('detail-meta-inspector').textContent = reportObj.inspector;
-    document.getElementById('detail-meta-approver').textContent = reportObj.approver || "無";
-    
-    // Status block
-    const defectCount = reportObj.items.filter(it => it.status === 'fail').length;
-    const badge = document.getElementById('detail-meta-status-badge');
-    if (defectCount > 0) {
-        badge.className = "status-badge fail";
-        badge.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> 不合格 (${defectCount}項異常)`;
-    } else {
-        badge.className = "status-badge ok";
-        badge.innerHTML = `<i class="fa-solid fa-circle-check"></i> 安全合格`;
-    }
-    
-    const container = document.getElementById('detail-items-container');
-    container.innerHTML = '';
-    
-    // Header for static detail table
-    const tableHeader = document.createElement('div');
-    tableHeader.style.display = 'flex';
-    tableHeader.style.background = 'var(--bg-tertiary)';
-    tableHeader.style.fontWeight = 'bold';
-    tableHeader.style.padding = '8px 12px';
-    tableHeader.style.fontSize = '13px';
-    tableHeader.style.borderBottom = '2px solid var(--border-glass)';
-    tableHeader.innerHTML = `
-        <div style="flex: 1;">檢查項目與內容</div>
-        <div style="width: 150px; text-align: center;">現況與量測數值</div>
-        <div style="width: 100px; text-align: center;">檢驗判定</div>
-    `;
-    container.appendChild(tableHeader);
-    
-    let currentCategory = "";
-    
-    reportObj.items.forEach((item, itemIdx) => {
-        if (item.category !== currentCategory) {
-            currentCategory = item.category;
-            
-            const catHeader = document.createElement('div');
-            catHeader.className = 'report-detail-category-header';
-            catHeader.textContent = currentCategory;
-            container.appendChild(catHeader);
-        }
-        
-        const row = document.createElement('div');
-        row.className = 'report-detail-row';
-        row.style.alignItems = 'center';
-        
-        let statusText = '';
-        if (item.status === 'pass') {
-            statusText = '<span style="color:var(--success); font-weight:600;"><i class="fa-solid fa-check"></i> 合格</span>';
-        } else if (item.status === 'fail') {
-            statusText = '<span style="color:var(--danger); font-weight:600;"><i class="fa-solid fa-xmark"></i> 不合格</span>';
-        } else {
-            statusText = '<span style="color:var(--text-muted); font-weight:500;"><i class="fa-solid fa-power-off"></i> 無運作</span>';
-        }
-        
-        let noteHtml = '';
-        if (item.note) {
-            noteHtml = `<div class="note"><strong>原因備註:</strong> ${item.note}</div>`;
-        }
-        
-        let photosHtml = '';
-        if (item.photos && item.photos.length > 0) {
-            photosHtml = '<div class="report-detail-item-images">';
-            item.photos.forEach(p => {
-                photosHtml += `<img src="${p}" class="report-detail-img-thumb" onclick="openPhotoLargeView('${p}')">`;
-            });
-            photosHtml += '</div>';
-        }
-        
-        row.innerHTML = `
-            <div class="report-detail-item-info">
-                <strong>${itemIdx + 1}. ${item.name}</strong>
-                ${noteHtml}
-                ${photosHtml}
-            </div>
-            <div style="width: 150px; text-align: center; font-style: italic; color: var(--text-secondary);">
-                ${item.record ? `"${item.record}"` : '-'}
-            </div>
-            <div style="width: 100px; text-align: center;">
-                ${statusText}
-            </div>
-        `;
-        container.appendChild(row);
-    });
-    
-    const sigImg = document.getElementById('detail-signature-image');
-    if (reportObj.signature) {
-        sigImg.src = reportObj.signature;
-        sigImg.style.display = 'block';
-    } else {
-        sigImg.style.display = 'none';
-    }
-    
-    showScreen('report-detail-screen');
-}
-
-function openPhotoLargeView(base64Src) {
-    const modal = document.getElementById('viewer-modal');
-    document.getElementById('viewer-img-large').src = base64Src;
-    modal.classList.add('active');
-}
-
-document.getElementById('viewer-close-btn').addEventListener('click', () => {
-    document.getElementById('viewer-modal').classList.remove('active');
-});
-document.getElementById('viewer-close-btn-2').addEventListener('click', () => {
-    document.getElementById('viewer-modal').classList.remove('active');
-});
-
-// ==========================================================================
-// 12. Direct Printing
-// ==========================================================================
-
-document.getElementById('detail-print-btn').addEventListener('click', () => {
-    window.print();
-});
-
-// ==========================================================================
-// 13. Word Document Generator Engine (docx.js)
+// 10. Word Document Generator Engine (docx.js)
 // ==========================================================================
 
 async function exportReportToWord() {
@@ -1548,10 +1306,9 @@ async function exportReportToWord() {
             ]
         });
         
-        // Checklist table
         const tableRows = [];
         
-        // Table Header
+        // Header
         tableRows.push(
             new TableRow({
                 children: [
@@ -1594,7 +1351,6 @@ async function exportReportToWord() {
             })
         );
         
-        // Loop checklist
         for (let i = 0; i < currentReport.items.length; i++) {
             const item = currentReport.items[i];
             
@@ -1609,16 +1365,15 @@ async function exportReportToWord() {
             }
             
             const detailCellsChildren = [];
-            
             if (item.note) {
                 detailCellsChildren.push(
                     new Paragraph({
                         children: [
                             new TextRun({ text: "備註: ", bold: true, color: "4A5568", font: "Calibri", size: 16 }),
                             new TextRun({ text: item.note, color: "E53E3E", font: "Calibri", size: 16 })
-                        ]),
+                        ],
                         spacing: { after: 100 }
-                    }
+                    })
                 );
             }
             
@@ -1755,8 +1510,6 @@ function base64ToArrayBuffer(base64) {
     return bytes.buffer;
 }
 
-document.getElementById('detail-export-word-btn').addEventListener('click', exportReportToWord);
-
 // ==========================================================================
 // 14. Users Database Screen Implementation
 // ==========================================================================
@@ -1764,6 +1517,7 @@ document.getElementById('detail-export-word-btn').addEventListener('click', expo
 function renderUsersScreen() {
     loadData();
     const tbody = document.getElementById('users-list-tbody');
+    if (!tbody) return;
     tbody.innerHTML = '';
     
     usersList.forEach((user, idx) => {
@@ -1786,55 +1540,26 @@ function renderUsersScreen() {
     });
 }
 
-document.getElementById('user-editor-form').addEventListener('submit', () => {
-    const uIndex = parseInt(document.getElementById('user-edit-index').value);
-    const uId = document.getElementById('user-input-id').value.trim();
-    const uName = document.getElementById('user-input-name').value.trim();
-    const uDept = document.getElementById('user-input-dept').value.trim();
-    const uRole = document.getElementById('user-input-role').value;
-    
-    if (!uId || !uName || !uDept) {
-        alert("請填寫所有必要人員欄位！");
-        return;
-    }
-    
-    const newUser = { id: uId, name: uName, dept: uDept, role: uRole };
-    
-    if (uIndex === -1) {
-        // Create new user, ensure ID uniqueness
-        if (usersList.some(u => u.id.toLowerCase() === uId.toLowerCase())) {
-            alert(`已存在相同的工號 [${uId}]，請確認填寫內容！`);
-            return;
-        }
-        usersList.push(newUser);
-        showToast(`已成功新增人員：${uName}`);
-    } else {
-        // Update user
-        usersList[uIndex] = newUser;
-        showToast(`已成功更新人員資料：${uName}`);
-    }
-    
-    localStorage.setItem('inspection_users_db', JSON.stringify(usersList));
-    resetUserForm();
-    renderUsersScreen();
-});
-
 function editUser(index) {
     const user = usersList[index];
+    if (!user) return;
     document.getElementById('user-edit-index').value = index;
     document.getElementById('user-input-id').value = user.id;
-    document.getElementById('user-input-id').disabled = true; // Block modifying unique ID during edits
+    document.getElementById('user-input-id').disabled = true; 
     document.getElementById('user-input-name').value = user.name;
     document.getElementById('user-input-dept').value = user.dept;
     document.getElementById('user-input-role').value = user.role;
     
     document.getElementById('user-form-title').innerHTML = `<i class="fa-solid fa-user-pen"></i> 編輯人員資料`;
     document.getElementById('user-save-btn').innerHTML = `<i class="fa-solid fa-check"></i> 儲存變更`;
-    document.getElementById('user-clear-btn').style.display = 'inline-block';
+    
+    const clearBtn = document.getElementById('user-clear-btn');
+    if (clearBtn) clearBtn.style.display = 'inline-block';
 }
 
 function deleteUser(index) {
     const u = usersList[index];
+    if (!u) return;
     if (confirm(`您確定要刪除人員 [${u.name}] (工號: ${u.id}) 嗎？`)) {
         usersList.splice(index, 1);
         localStorage.setItem('inspection_users_db', JSON.stringify(usersList));
@@ -1843,19 +1568,28 @@ function deleteUser(index) {
     }
 }
 
-document.getElementById('user-clear-btn').addEventListener('click', resetUserForm);
-
 function resetUserForm() {
-    document.getElementById('user-edit-index').value = "-1";
-    document.getElementById('user-input-id').value = "";
-    document.getElementById('user-input-id').disabled = false;
-    document.getElementById('user-input-name').value = "";
-    document.getElementById('user-input-dept').value = "";
-    document.getElementById('user-input-role').value = "巡檢員";
+    const editIndexInput = document.getElementById('user-edit-index');
+    const inputId = document.getElementById('user-input-id');
+    const inputName = document.getElementById('user-input-name');
+    const inputDept = document.getElementById('user-input-dept');
+    const inputRole = document.getElementById('user-input-role');
+    const formTitle = document.getElementById('user-form-title');
+    const saveBtn = document.getElementById('user-save-btn');
+    const clearBtn = document.getElementById('user-clear-btn');
+
+    if (editIndexInput) editIndexInput.value = "-1";
+    if (inputId) {
+        inputId.value = "";
+        inputId.disabled = false;
+    }
+    if (inputName) inputName.value = "";
+    if (inputDept) inputDept.value = "";
+    if (inputRole) inputRole.value = "巡檢員";
     
-    document.getElementById('user-form-title').innerHTML = `<i class="fa-solid fa-user-plus"></i> 新增人員帳號`;
-    document.getElementById('user-save-btn').innerHTML = `<i class="fa-solid fa-user-check"></i> 儲存人員`;
-    document.getElementById('user-clear-btn').style.display = 'none';
+    if (formTitle) formTitle.innerHTML = `<i class="fa-solid fa-user-plus"></i> 新增人員帳號`;
+    if (saveBtn) saveBtn.innerHTML = `<i class="fa-solid fa-user-check"></i> 儲存人員`;
+    if (clearBtn) clearBtn.style.display = 'none';
 }
 
 // ==========================================================================
@@ -1867,21 +1601,26 @@ function initTheme() {
     document.documentElement.setAttribute('data-theme', savedTheme);
     updateThemeToggleIcon(savedTheme);
     
-    document.getElementById('theme-toggle').addEventListener('click', () => {
-        const currentTheme = document.documentElement.getAttribute('data-theme');
-        const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-theme', nextTheme);
-        localStorage.setItem('inspection_theme', nextTheme);
-        updateThemeToggleIcon(nextTheme);
-    });
+    const toggle = document.getElementById('theme-toggle');
+    if (toggle) {
+        toggle.addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', nextTheme);
+            localStorage.setItem('inspection_theme', nextTheme);
+            updateThemeToggleIcon(nextTheme);
+        });
+    }
 }
 
 function updateThemeToggleIcon(theme) {
     const btn = document.getElementById('theme-toggle');
-    if (theme === 'dark') {
-        btn.innerHTML = `<i class="fa-solid fa-sun" style="color: #f59e0b;"></i>`;
-    } else {
-        btn.innerHTML = `<i class="fa-solid fa-moon"></i>`;
+    if (btn) {
+        if (theme === 'dark') {
+            btn.innerHTML = `<i class="fa-solid fa-sun" style="color: #f59e0b;"></i>`;
+        } else {
+            btn.innerHTML = `<i class="fa-solid fa-moon"></i>`;
+        }
     }
 }
 
@@ -1916,43 +1655,242 @@ function showToast(message) {
 }
 
 // ==========================================================================
-// 16. Setup Global Event Listeners & Initialize
+// 16. Safe Event Binding Setup (Invoked in DOMContentLoaded)
 // ==========================================================================
 
-document.addEventListener('DOMContentLoaded', () => {
-    initTheme();
-    loadData();
-    checkAuth();
+function initAppEvents() {
+    // 1. Navigation clicks
+    const bindClick = (id, callback) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('click', callback);
+    };
+
+    bindClick('nav-dash-btn', () => showScreen('dashboard-screen'));
+    bindClick('nav-templates-btn', () => showScreen('template-screen'));
+    bindClick('nav-users-btn', () => showScreen('users-screen'));
     
-    initMarkupEvents();
-    initSignatureEvents();
+    bindClick('dash-new-inspection-btn', () => showScreen('template-screen'));
+    bindClick('dash-manage-templates-btn', () => showScreen('template-screen'));
+    bindClick('dash-manage-users-btn', () => showScreen('users-screen'));
     
-    // Quick login controls
-    document.getElementById('quick-login-btn').addEventListener('click', () => {
+    bindClick('back-to-dash-btn-1', () => showScreen('dashboard-screen'));
+    bindClick('back-to-dash-btn-2', () => showScreen('dashboard-screen'));
+    bindClick('back-to-dash-btn-3', () => showScreen('dashboard-screen'));
+
+    // 2. User Form Events
+    const userClearBtn = document.getElementById('user-clear-btn');
+    if (userClearBtn) userClearBtn.addEventListener('click', resetUserForm);
+
+    const userEditorForm = document.getElementById('user-editor-form');
+    if (userEditorForm) {
+        userEditorForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const uIndex = parseInt(document.getElementById('user-edit-index').value);
+            const uId = document.getElementById('user-input-id').value.trim();
+            const uName = document.getElementById('user-input-name').value.trim();
+            const uDept = document.getElementById('user-input-dept').value.trim();
+            const uRole = document.getElementById('user-input-role').value;
+            
+            if (!uId || !uName || !uDept) {
+                alert("請填寫所有必要人員欄位！");
+                return;
+            }
+            
+            const newUser = { id: uId, name: uName, dept: uDept, role: uRole };
+            
+            if (uIndex === -1) {
+                if (usersList.some(u => u.id.toLowerCase() === uId.toLowerCase())) {
+                    alert(`已存在相同的工號 [${uId}]，請確認填寫內容！`);
+                    return;
+                }
+                usersList.push(newUser);
+                showToast(`已成功新增人員：${uName}`);
+            } else {
+                usersList[uIndex] = newUser;
+                showToast(`已成功更新人員資料：${uName}`);
+            }
+            
+            localStorage.setItem('inspection_users_db', JSON.stringify(usersList));
+            resetUserForm();
+            renderUsersScreen();
+        });
+    }
+
+    // 3. Template Designer Events
+    bindClick('designer-add-group-btn', () => {
+        designerTemplate.categories.push({
+            name: `${String.fromCharCode(65 + designerTemplate.categories.length)}. 新增巡檢大項`,
+            items: ["預設檢查細項條目"]
+        });
+        loadTemplateToDesignerUI();
+    });
+
+    bindClick('designer-save-template-btn', () => {
+        const titleVal = document.getElementById('designer-title').value.trim();
+        if (!titleVal) {
+            alert("請輸入巡檢單名稱！");
+            return;
+        }
+        
+        designerTemplate.name = titleVal;
+        if (designerTemplate.categories.length === 0) {
+            alert("表單內不能沒有任何巡檢項目！");
+            return;
+        }
+        
+        let savedTemplates = localStorage.getItem('inspection_templates');
+        let customArr = savedTemplates ? JSON.parse(savedTemplates) : [];
+        
+        const existingIdx = customArr.findIndex(t => t.id === designerTemplate.id);
+        if (existingIdx !== -1) {
+            customArr[existingIdx] = designerTemplate;
+        } else {
+            if (!designerTemplate.id) designerTemplate.id = "custom-" + Date.now();
+            designerTemplate.creator = currentUser ? currentUser.name : "主管自訂";
+            designerTemplate.createdAt = new Date().toISOString().split('T')[0];
+            customArr.push(designerTemplate);
+        }
+        
+        saveCustomTemplatesToStorage(customArr);
+        renderTemplatesScreen();
+        showToast("範本儲存成功！已更新範本清單。");
+    });
+
+    // 4. Form Submission Events
+    bindClick('form-save-draft-btn', () => {
+        if (!currentReport) return;
+        validateAndCollectFormMeta();
+        currentReport.isDraft = true;
+        currentReport.timestamp = Date.now();
+        if (signatureLocked) {
+            currentReport.signature = signatureCanvas.toDataURL('image/png');
+        }
+        saveReport(currentReport);
+        showScreen('dashboard-screen');
+        showToast("草稿暫存完成！");
+    });
+
+    bindClick('form-submit-btn', () => {
+        if (!currentReport) return;
+        validateAndCollectFormMeta();
+        
+        let unselected = [];
+        currentReport.items.forEach((it, idx) => {
+            if (!it.status) unselected.push(idx + 1);
+        });
+        if (unselected.length > 0) {
+            alert(`無法送出！\n第 ${unselected.join(", ")} 項巡檢項目未勾選。`);
+            return;
+        }
+        
+        let commentsMissing = [];
+        currentReport.items.forEach((it, idx) => {
+            if (it.status === 'fail' && !it.note.trim()) {
+                commentsMissing.push(idx + 1);
+            }
+        });
+        if (commentsMissing.length > 0) {
+            alert(`無法送出！\n第 ${commentsMissing.join(", ")} 項不合格之處未填寫原因說明！`);
+            return;
+        }
+        
+        if (!currentReport.signature && !signatureLocked) {
+            alert("無法送出！\n請於審核人簽名區域手寫簽名，並點選「鎖定簽章」核准！");
+            return;
+        }
+        
+        if (signatureLocked) {
+            currentReport.signature = signatureCanvas.toDataURL('image/png');
+        }
+        
+        currentReport.isDraft = false;
+        currentReport.timestamp = Date.now();
+        
+        saveReport(currentReport);
+        viewReportDetail(currentReport.id);
+        showToast("巡檢單已送出並正式存檔！");
+    });
+
+    bindClick('form-cancel-btn', () => {
+        if (confirm("是否放棄填寫？")) {
+            showScreen('dashboard-screen');
+        }
+    });
+
+    // 5. Detail Action Events
+    bindClick('detail-export-word-btn', exportReportToWord);
+    bindClick('detail-print-btn', () => window.print());
+
+    // 6. History Table Search Filter
+    const searchInput = document.getElementById('search-history-input');
+    if (searchInput) {
+        searchInput.addEventListener('input', function(e) {
+            const query = e.target.value.toLowerCase().trim();
+            const rows = document.querySelectorAll('#history-tbody tr');
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(query) ? 'table-row' : 'none';
+            });
+        });
+    }
+
+    // 7. Login Events
+    bindClick('quick-login-btn', (e) => {
+        e.preventDefault();
         login('admin', '123456');
     });
-    
-    document.getElementById('login-form').addEventListener('submit', () => {
+
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) {
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+            login(u, p);
+        });
+    }
+
+    bindClick('submit-login-btn', (e) => {
+        e.preventDefault();
         const u = document.getElementById('username').value;
         const p = document.getElementById('password').value;
         login(u, p);
     });
-    
-    document.getElementById('logout-btn').addEventListener('click', () => {
+
+    bindClick('logout-btn', () => {
         if (confirm("您確定要登出系統嗎？")) {
             localStorage.removeItem('inspection_user');
             currentUser = null;
             showScreen('login-screen');
         }
     });
-    
-    // Connect Nav buttons
-    document.getElementById('nav-dash-btn').addEventListener('click', () => showScreen('dashboard-screen'));
-    document.getElementById('nav-templates-btn').addEventListener('click', () => showScreen('template-screen'));
-    document.getElementById('nav-users-btn').addEventListener('click', () => showScreen('users-screen'));
-    
-    document.getElementById('dash-new-inspection-btn').addEventListener('click', () => showScreen('template-screen'));
-    document.getElementById('dash-manage-templates-btn').addEventListener('click', () => showScreen('template-screen'));
-    document.getElementById('dash-manage-users-btn').addEventListener('click', () => showScreen('users-screen'));
-    document.getElementById('back-to-dash-btn-3').addEventListener('click', () => showScreen('dashboard-screen'));
+}
+
+// ==========================================================================
+// 17. Run Setup Sequence on Load
+// ==========================================================================
+
+document.addEventListener('DOMContentLoaded', () => {
+    try {
+        // 1. Initialise CSS Theme Configurations
+        initTheme();
+        
+        // 2. Load LocalStorage Data Arrays
+        loadData();
+        
+        // 3. Setup Interactive Visual Elements
+        initMarkupEvents();
+        initSignatureEvents();
+        
+        // 4. Securely Bind All General Click & Submit Listeners
+        initAppEvents();
+        
+        // 5. Auto Login redirection check
+        checkAuth();
+        
+        showToast("美達食品巡檢系統載入完成！");
+    } catch (e) {
+        console.error("Initialization Critical Fail:", e);
+        alert("系統載入模組時出錯！若您是在本機以雙擊 HTML 檔案開啟，部分舊型瀏覽器可能限制安全指令。\n詳細錯誤內容: " + e.message);
+    }
 });
