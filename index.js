@@ -671,8 +671,8 @@ function startNewInspection(tmplId) {
         });
     });
     
-    loadReportToFillingUI();
     showScreen('form-screen');
+    loadReportToFillingUI();
 }
 
 function loadReportToFillingUI() {
@@ -691,6 +691,8 @@ function loadReportToFillingUI() {
     if (currentReport.approverId) {
         document.getElementById('form-input-approver').value = currentReport.approverId;
     }
+    
+    resizeSignatureCanvas();
     
     signatureLocked = false;
     document.getElementById('signature-lock-btn').innerHTML = `<i class="fa-solid fa-lock"></i> 鎖定簽章`;
@@ -1034,27 +1036,42 @@ function initMarkupEvents() {
 // 9. Digital Signature Pad Implementation
 // ==========================================================================
 
+function resizeSignatureCanvas() {
+    if (!signatureCanvas) {
+        signatureCanvas = document.getElementById('signature-canvas');
+        if (!signatureCanvas) return;
+        signatureContext = signatureCanvas.getContext('2d');
+    }
+    const dpr = window.devicePixelRatio || 1;
+    const rect = signatureCanvas.getBoundingClientRect();
+    signatureCanvas.width = rect.width * dpr;
+    signatureCanvas.height = rect.height * dpr;
+    if (signatureContext) {
+        signatureContext.scale(dpr, dpr);
+        signatureContext.fillStyle = '#ffffff';
+        signatureContext.fillRect(0, 0, rect.width, rect.height);
+    }
+}
+
 function initSignatureEvents() {
     signatureCanvas = document.getElementById('signature-canvas');
     if (!signatureCanvas) return;
     signatureContext = signatureCanvas.getContext('2d');
     
-    function resizeCanvas() {
-        if (!signatureCanvas) return;
-        const dpr = window.devicePixelRatio || 1;
-        const rect = signatureCanvas.getBoundingClientRect();
-        signatureCanvas.width = rect.width * dpr;
-        signatureCanvas.height = rect.height * dpr;
-        if (signatureContext) {
-            signatureContext.scale(dpr, dpr);
-            signatureContext.fillStyle = '#ffffff';
-            signatureContext.fillRect(0, 0, rect.width, rect.height);
-        }
-    }
-    
     window.addEventListener('resize', () => {
         if (document.getElementById('form-screen').classList.contains('active')) {
-            resizeCanvas();
+            let sigData = null;
+            if (signatureCanvas && currentReport && currentReport.signature) {
+                sigData = currentReport.signature;
+            }
+            resizeSignatureCanvas();
+            if (sigData) {
+                const img = new Image();
+                img.onload = function() {
+                    if (signatureContext) signatureContext.drawImage(img, 0, 0);
+                };
+                img.src = sigData;
+            }
         }
     });
     
@@ -1140,6 +1157,163 @@ function unlockSignaturePad() {
     const lockBtn = document.getElementById('signature-lock-btn');
     if (lockBtn) lockBtn.innerHTML = `<i class="fa-solid fa-lock"></i> 鎖定簽章`;
     if (signatureCanvas) signatureCanvas.style.pointerEvents = 'auto';
+}
+
+// ==========================================================================
+// 11. View & Render Saved Inspection Report (Detail Screen)
+// ==========================================================================
+
+function viewReportDetail(reportId) {
+    loadData();
+    const reportObj = reports.find(r => r.id === reportId);
+    if (!reportObj) {
+        alert("找不到此巡檢紀錄！");
+        return;
+    }
+    
+    currentReport = reportObj;
+    
+    if (reportObj.isDraft) {
+        showScreen('form-screen');
+        loadReportToFillingUI();
+        showToast("已載入巡檢草稿，可繼續填寫。");
+    } else {
+        renderReportDetailScreen(reportObj);
+        showScreen('report-detail-screen');
+    }
+}
+
+function renderReportDetailScreen(reportObj) {
+    document.getElementById('detail-meta-title').textContent = reportObj.title;
+    document.getElementById('detail-meta-date').textContent = reportObj.date;
+    document.getElementById('detail-meta-time').textContent = reportObj.time;
+    document.getElementById('detail-meta-area').textContent = reportObj.area;
+    document.getElementById('detail-meta-machine').textContent = reportObj.machine || '無';
+    document.getElementById('detail-meta-inspector').textContent = `${reportObj.inspector} (${reportObj.inspectorId})`;
+    document.getElementById('detail-meta-approver').textContent = `${reportObj.approver} (${reportObj.approverId})`;
+    
+    const defects = reportObj.items.filter(it => it.status === 'fail').length;
+    const statusBadge = document.getElementById('detail-meta-status-badge');
+    if (statusBadge) {
+        statusBadge.className = 'status-badge ' + (defects > 0 ? 'fail' : 'ok');
+        statusBadge.innerHTML = defects > 0 
+            ? `<i class="fa-solid fa-circle-exclamation"></i> 發現異常項目 (${defects} 項)` 
+            : `<i class="fa-solid fa-circle-check"></i> 正常無異常`;
+    }
+    
+    const container = document.getElementById('detail-items-container');
+    container.innerHTML = '';
+    
+    let currentCategory = "";
+    
+    reportObj.items.forEach((item, itemIdx) => {
+        if (item.category !== currentCategory) {
+            currentCategory = item.category;
+            const catHeader = document.createElement('div');
+            catHeader.className = 'report-detail-category-header';
+            catHeader.textContent = currentCategory;
+            container.appendChild(catHeader);
+        }
+        
+        const row = document.createElement('div');
+        row.className = 'report-detail-row';
+        
+        let statusBadgeHtml = '';
+        if (item.status === 'pass') {
+            statusBadgeHtml = '<span class="status-badge ok"><i class="fa-solid fa-check"></i> 合格</span>';
+        } else if (item.status === 'fail') {
+            statusBadgeHtml = '<span class="status-badge fail"><i class="fa-solid fa-xmark"></i> 不合格</span>';
+        } else if (item.status === 'na') {
+            statusBadgeHtml = '<span class="status-badge draft" style="background:#f1f5f9; color:#64748b;"><i class="fa-solid fa-minus"></i> 無運作</span>';
+        } else {
+            statusBadgeHtml = '<span class="status-badge draft">未檢驗</span>';
+        }
+        
+        let noteHtml = '';
+        if (item.note) {
+            noteHtml = `<div class="note"><i class="fa-solid fa-triangle-exclamation"></i> 異常備註: ${item.note}</div>`;
+        }
+        
+        let photosHtml = '';
+        if (item.photos && item.photos.length > 0) {
+            photosHtml = `
+                <div class="report-detail-item-images">
+                    ${item.photos.map(p => `<img src="${p}" class="report-detail-img-thumb" style="cursor: pointer;" onclick="openPhotoViewerModal('${p}')">`).join('')}
+                </div>
+            `;
+        }
+        
+        row.innerHTML = `
+            <div class="report-detail-item-info">
+                <div style="font-weight: 500;">${itemIdx + 1}. ${item.name}</div>
+                ${item.record ? `<div style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">現況記錄: <em>${item.record}</em></div>` : ''}
+                ${noteHtml}
+                ${photosHtml}
+            </div>
+            <div style="text-align: right; min-width: 80px; align-self: center;">
+                ${statusBadgeHtml}
+            </div>
+        `;
+        container.appendChild(row);
+    });
+    
+    const sigImg = document.getElementById('detail-signature-image');
+    if (sigImg) {
+        if (reportObj.signature) {
+            sigImg.src = reportObj.signature;
+            sigImg.style.display = 'block';
+        } else {
+            sigImg.style.display = 'none';
+        }
+    }
+}
+
+// ==========================================================================
+// 12. Photo Viewer Modal Integration
+// ==========================================================================
+
+function openPhotoViewerModal(base64Img) {
+    const modal = document.getElementById('viewer-modal');
+    const img = document.getElementById('viewer-img-large');
+    if (modal && img) {
+        img.src = base64Img;
+        modal.classList.add('active');
+    }
+}
+
+function closePhotoViewerModal() {
+    const modal = document.getElementById('viewer-modal');
+    if (modal) {
+        modal.classList.remove('active');
+    }
+}
+
+// ==========================================================================
+// 13. Form Metadata Validation & Collection
+// ==========================================================================
+
+function validateAndCollectFormMeta() {
+    if (!currentReport) return;
+    
+    const inspectorId = document.getElementById('form-input-inspector').value;
+    const approverId = document.getElementById('form-input-approver').value;
+    const area = document.getElementById('form-input-area').value;
+    const machine = document.getElementById('form-input-machine').value.trim();
+    
+    // Find inspector name from usersList
+    const inspectorUser = usersList.find(u => u.id === inspectorId);
+    const inspectorName = inspectorUser ? inspectorUser.name : "未知巡檢員";
+    
+    // Find approver name from usersList
+    const approverUser = usersList.find(u => u.id === approverId);
+    const approverName = approverUser ? approverUser.name : "未知主管";
+    
+    currentReport.inspectorId = inspectorId;
+    currentReport.inspector = inspectorName;
+    currentReport.approverId = approverId;
+    currentReport.approver = approverName;
+    currentReport.area = area;
+    currentReport.machine = machine;
 }
 
 // ==========================================================================
@@ -1756,6 +1930,57 @@ function initAppEvents() {
         showToast("範本儲存成功！已更新範本清單。");
     });
 
+    // 3b. Template File Upload Events
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    if (dropZone && fileInput) {
+        // Prevent click propagation from input so it does not trigger dropZone click recursively
+        fileInput.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        dropZone.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                parseUploadedFile(e.target.files[0]);
+                e.target.value = ''; // Reset file input so same file can be uploaded again
+            }
+        });
+
+        // Drag & Drop event bindings
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => {
+                dropZone.style.border = '2px dashed var(--warning)';
+                dropZone.style.background = 'var(--primary-light)';
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => {
+                dropZone.style.border = '2px dashed var(--primary)';
+                dropZone.style.background = 'var(--bg-tertiary)';
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0) {
+                parseUploadedFile(files[0]);
+            }
+        }, false);
+    }
+
     // 4. Form Submission Events
     bindClick('form-save-draft-btn', () => {
         if (!currentReport) return;
@@ -1820,6 +2045,16 @@ function initAppEvents() {
     // 5. Detail Action Events
     bindClick('detail-export-word-btn', exportReportToWord);
     bindClick('detail-print-btn', () => window.print());
+    bindClick('viewer-close-btn', closePhotoViewerModal);
+    bindClick('viewer-close-btn-2', closePhotoViewerModal);
+    const viewerModal = document.getElementById('viewer-modal');
+    if (viewerModal) {
+        viewerModal.addEventListener('click', (e) => {
+            if (e.target === viewerModal) {
+                closePhotoViewerModal();
+            }
+        });
+    }
 
     // 6. History Table Search Filter
     const searchInput = document.getElementById('search-history-input');
